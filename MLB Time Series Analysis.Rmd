@@ -1,0 +1,424 @@
+---
+title: "MLB Time Series Analysis"
+author: "Braden Barglind, Jonathan Oliveros"
+date: '2022-06-13'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Required Packages
+
+```{r include=FALSE}
+library(TSA)
+library(sandwich)
+library(lmtest)
+library(tseries)
+library(forecast)
+```
+
+
+#### Time Series Data
+
+
+```{r}
+overall.data <- read.csv('MLB Stats - Overall.csv')
+overall.data <- subset(overall.data,select= c(-X))
+overall.data <- ts(overall.data, start=1961)
+
+plot(overall.data,type='o', main="Statistics Over Time in MLB")
+```
+
+#### Train/Test Split
+
+```{r}
+train <- subset(overall.data, subset= time(overall.data) < 2010)
+test <- subset(overall.data, subset= time(overall.data) >= 2010)
+
+#split data for testing true model
+train <- ts(train, start=1961)
+test <- ts(test, start=2010)
+
+plot(train,type='o')
+```
+
+ 
+
+```{r}
+HR.data <- train[,"HR"]
+hr.model <- lm(HR.data~time(HR.data))
+loghr.model <- lm(log(HR.data)~time(HR.data))
+
+summary(hr.model)
+summary(loghr.model)
+```
+
+
+
+```{r}
+hits.data <- train[,"Hits"]
+hits.model <- lm(hits.data~time(hits.data))
+sqrthits.model <- lm(sqrt(hits.data)~time(hits.data))
+
+summary(hits.model)
+summary(sqrthits.model)
+```
+ 
+
+```{r}
+runs.data <- train[,"Runs"]
+runs.model <- lm(runs.data~time(runs.data))
+logruns.model <- lm(log(runs.data)~time(runs.data))
+sqrtruns.model <- lm(sqrt(runs.data)~time(runs.data))
+
+
+summary(runs.model)
+summary(logruns.model)
+summary(sqrtruns.model)
+```
+
+```{r}
+SO.data <- train[,"SO"]
+so.model <- lm(SO.data~time(SO.data))
+logso.model <- lm(log(SO.data)~time(SO.data))
+
+summary(so.model)
+summary(logso.model)
+```
+
+### Best Fit Line
+
+```{r}
+par(mfrow=c(2,2))
+plot(HR.data,type='o');abline(hr.model)
+plot(hits.data,type='o');abline(hits.model)
+plot(runs.data,type='o');abline(runs.model)
+plot(SO.data,type='o');abline(so.model)
+```
+
+#### HAC TEST
+
+```{r}
+ 
+coeftest(hr.model, vcov=vcovHAC(hr.model))
+coeftest(hits.model, vcov=vcovHAC(hits.model))
+coeftest(runs.model, vcov=vcovHAC(runs.model))
+coeftest(so.model, vcov=vcovHAC(so.model))
+```
+
+
+### Non-transformed model residuals
+
+```{r}
+par(mfrow=c(2,2))
+plot(rstandard(hr.model),type='o')
+plot(rstandard(hits.model),type='o')
+plot(rstandard(runs.model),type='o')
+plot(rstandard(so.model),type='o')
+
+```
+
+### Transformed Model Residuals
+
+```{r}
+hrres <- rstandard(hr.model)
+hitsres <- rstandard(sqrthits.model)
+runsres <- rstandard(sqrtruns.model)
+sores <- rstandard(logso.model)
+
+par(mfrow= c(2,2))
+plot(hrres,type='o')
+plot(hitsres,type='o')
+plot(runsres,type='o')
+plot(sores,type='o')
+```
+
+```{r}
+par(mfrow=c(2,2))
+qqnorm(hrres);qqline(hrres)
+qqnorm(hitsres);qqline(hitsres)
+qqnorm(runsres);qqline(runsres)
+qqnorm(sores);qqline(sores)
+```
+
+```{r}
+par(mfrow=c(2,2))
+hist(hrres)
+hist(hitsres)
+hist(runsres)
+hist(sores)
+```
+
+
+```{r}
+shapiro.test(hrres)
+shapiro.test(hitsres)
+shapiro.test(runsres)
+shapiro.test(sores)
+```
+
+
+
+
+### Time Dependence
+
+
+
+```{r}
+par(mfrow=c(2,2))
+acf(hrres)
+acf(hitsres)
+acf(runsres)
+acf(sores)
+```
+
+
+
+```{r}
+par(mfrow=c(2,2))
+runs(hrres)
+runs(hitsres)
+runs(runsres)
+runs(sores)
+```
+
+
+### Determine Order of Integration d
+
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(hrres, type='o')
+plot(hitsres, type='o')
+plot(runsres, type='o')
+plot(sores, type='o')
+```
+
+#### Stationarity and Unit Roots
+
+```{r}
+adf.test(hrres)
+adf.test(hitsres)
+adf.test(runsres)
+adf.test(sores)
+```
+
+```{r}
+pp.test(hrres)
+pp.test(hitsres)
+pp.test(runsres)
+pp.test(sores)
+```
+
+```{r}
+kpss.test(hrres)
+kpss.test(hitsres)
+kpss.test(runsres)
+kpss.test(sores)
+```
+
+### Choosing p and q
+
+```{r}
+par(mfrow=c(2,2))
+acf(hrres)
+acf(hitsres)
+acf(runsres)
+acf(sores)
+```
+
+```{r}
+par(mfrow=c(2,2))
+pacf(hrres)
+pacf(hitsres)
+pacf(runsres)
+pacf(sores)
+```
+
+#### EACF Plots
+
+```{r}
+print("HR")
+eacf(hrres)
+print("Hits")
+eacf(hitsres)
+print("Runs")
+eacf(runsres)
+print("SO")
+eacf(sores)
+
+```
+
+For HR:
+IMA(1,1) or ARI(3,1)
+
+For Hits:
+IMA(1,1) or ARI(3,1)
+
+For Runs:
+
+ARI(1,1)
+
+For SO:
+
+ARI(5,1) or IMA(1,1)
+
+
+
+### Creating ARIMA Models
+
+```{r}
+hr.MA <- Arima(hrres, c(0,1,1))
+hr.AR3 <- Arima(hrres, c(3,1,0))
+hr.MA
+hr.AR3
+```
+
+```{r}
+hits.MA <- Arima(hitsres, c(0,1,1))
+hits.AR <- Arima(hitsres, c(3,1,0))
+hits.MA
+hits.AR
+```
+
+```{r}
+runs.AR <- Arima(runsres, c(1,1,0))
+runs.AR
+```
+
+```{r}
+so.AR <- Arima(sores, c(5,1,0))
+so.MA <- Arima(sores, c(0,1,1))
+so.AR
+so.MA
+```
+
+keep `hr.MA`, `hits.MA`, `runs.AR`, `so.MA`
+
+```{r}
+tsdiag(hr.MA)
+tsdiag(hits.MA)
+tsdiag(runs.AR)
+tsdiag(so.MA)
+```
+
+### Overfitting
+
+```{r}
+hr.overfit <- Arima(hrres, c(0,1,2))
+hits.overfit <- Arima(hitsres, c(0,1,2))
+runs.overfit <- Arima(runsres, c(2,1,0))
+so.overfit <- Arima(sores, c(0,1,2))
+```
+
+```{r}
+data.frame(
+  Model= c("hr.MA","hits.MA","runs.AR","so.MA","hr.overfit","hits.overfit","runs.overfit","so.overfit"),
+  AIC= c(hr.MA$aic, hits.MA$aic, runs.AR$aic, so.MA$aic, hr.overfit$aic, hits.overfit$aic, runs.overfit$aic, so.overfit$aic),
+  AICC= c(hr.MA$aicc, hits.MA$aicc, runs.AR$aicc, so.MA$aicc, hr.overfit$aicc, hits.overfit$aicc, runs.overfit$aicc, so.overfit$aicc),
+  BIC= c(hr.MA$bic, hits.MA$bic, runs.AR$bic, so.MA$bic, hr.overfit$bic, hits.overfit$bic, runs.overfit$bic, so.overfit$bic)
+  )
+```
+
+### Forecasting
+
+```{r}
+#HR
+HR.MA1_xreg=Arima(HR.data,order=c(0,1,1),xreg=1:length(HR.data))
+newtm=seq(from=length(HR.data)+1,to=length(HR.data)+10,length=10)
+predx=predict(HR.MA1_xreg,n.ahead=10,newxreg=newtm)
+pr=predx$pred
+uci=pr+2*predx$se
+lci=pr-2*predx$se
+
+# To plot the predicted values as prediction intervals, code them as time series
+pr=ts(pr,start=2010,freq=1)
+uci=ts(uci,start=2010,freq=1)
+lci=ts(lci,start=2010,freq=1)
+
+ymin=min(c(as.vector(lci),HR.data))-.1
+ymax=max(c(as.vector(uci),HR.data))+.1
+
+par(mfrow=c(1,1))
+plot(HR.data,xlim=c(1961,2020),ylim=c(ymin,ymax),main="HR.data")
+lines(test[,"HR"], type='o')
+lines(pr,col=2)
+lines(uci,col=3)
+lines(lci,col=3)
+```
+
+```{r}
+#Hits
+hits.MA1_xreg=Arima(hits.data,order=c(0,1,1),xreg=1:length(hits.data))
+newtm=seq(from=length(hits.data)+1,to=length(hits.data)+10,length=10)
+predx=predict(hits.MA1_xreg,n.ahead=10,newxreg=newtm)
+pr=predx$pred
+uci=pr+2*predx$se
+lci=pr-2*predx$se
+
+# To plot the predicted values as prediction intervals, code them as time series
+pr=ts(pr,start=2010,freq=1)
+uci=ts(uci,start=2010,freq=1)
+lci=ts(lci,start=2010,freq=1)
+
+ymin=min(c(as.vector(lci),hits.data))-.1
+ymax=max(c(as.vector(uci),hits.data))+.1
+
+par(mfrow=c(1,1))
+plot(hits.data,xlim=c(1961,2020),ylim=c(ymin,ymax),main="Hits.data")
+lines(test[,"Hits"], type='o')
+lines(pr,col=2)
+lines(uci,col=3)
+lines(lci,col=3)
+```
+
+```{r}
+#Runs
+runs.AR1_xreg=Arima(runs.data,order=c(1,1,0),xreg=1:length(runs.data))
+newtm=seq(from=length(runs.data)+1,to=length(runs.data)+10,length=10)
+predx=predict(runs.AR1_xreg,n.ahead=10,newxreg=newtm)
+pr=predx$pred
+uci=pr+2*predx$se
+lci=pr-2*predx$se
+
+# To plot the predicted values as prediction intervals, code them as time series
+pr=ts(pr,start=2010,freq=1)
+uci=ts(uci,start=2010,freq=1)
+lci=ts(lci,start=2010,freq=1)
+
+ymin=min(c(as.vector(lci),runs.data))-.1
+ymax=max(c(as.vector(uci),runs.data))+.1
+
+par(mfrow=c(1,1))
+plot(runs.data,xlim=c(1961,2020),ylim=c(ymin,ymax),main="runs.data")
+lines(test[,"Runs"], type='o')
+lines(pr,col=2)
+lines(uci,col=3)
+lines(lci,col=3)
+```
+
+```{r}
+#SO
+SO.MA1_xreg=Arima(SO.data,order=c(0,1,1),xreg=1:length(SO.data))
+newtm=seq(from=length(SO.data)+1,to=length(SO.data)+10,length=10)
+predx=predict(SO.MA1_xreg,n.ahead=10,newxreg=newtm)
+pr=predx$pred
+uci=pr+2*predx$se
+lci=pr-2*predx$se
+
+# To plot the predicted values as prediction intervals, code them as time series
+pr=ts(pr,start=2010,freq=1)
+uci=ts(uci,start=2010,freq=1)
+lci=ts(lci,start=2010,freq=1)
+
+ymin=min(c(as.vector(lci),SO.data))-.1
+ymax=max(c(as.vector(uci),SO.data))+.1
+
+par(mfrow=c(1,1))
+plot(SO.data,xlim=c(1961,2020),ylim=c(ymin,ymax),main="SO.data")
+lines(test[,"SO"], type='o')
+lines(pr,col=2)
+lines(uci,col=3)
+lines(lci,col=3)
+```
