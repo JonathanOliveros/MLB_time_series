@@ -1,6 +1,6 @@
 ---
 title: "MLB Time Series Analysis"
-author: "Braden Barglind, Jonathan Oliveros"
+author: "Braden Barglind, Jos Oliveros"
 date: '2022-06-13'
 output:
   html_document: default
